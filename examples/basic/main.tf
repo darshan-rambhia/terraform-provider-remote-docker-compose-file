@@ -1,13 +1,13 @@
 terraform {
   required_providers {
-    docker_compose = {
-      source  = "darshan-rambhia/docker-compose"
+    remote_docker_compose_file = {
+      source  = "darshan-rambhia/remote-docker-compose-file"
       version = "~> 0.1"
     }
   }
 }
 
-provider "docker_compose" {
+provider "remote_docker_compose_file" {
   ssh_user     = "root"
   ssh_key_path = "~/.ssh/id_ed25519"
   # Or use ssh_private_key for inline key content
@@ -15,7 +15,7 @@ provider "docker_compose" {
 }
 
 # Deploy a simple nginx stack
-resource "docker_compose_stack" "web" {
+resource "remote_docker_compose_file_stack" "web" {
   host        = "192.168.1.100"
   remote_path = "/opt/stacks/web/docker-compose.yaml"
 
@@ -39,9 +39,9 @@ resource "docker_compose_stack" "web" {
 
 # Output the stack ID for reference
 output "stack_id" {
-  value = docker_compose_stack.web.id
+  value = remote_docker_compose_file_stack.web.id
 }
 
 output "content_hash" {
-  value = docker_compose_stack.web.content_hash
+  value = remote_docker_compose_file_stack.web.content_hash
 }

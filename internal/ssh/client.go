@@ -1,7 +1,6 @@
 package ssh
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -10,9 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darshan-rambhia/gosftp"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // AuthMethod represents the SSH authentication method to use.
@@ -77,142 +74,41 @@ type ClientInterface interface {
 	RunCommand(ctx context.Context, command string) (stdout string, stderr string, err error)
 }
 
+// GoSFTPClientInterface represents the interface for gosftp operations.
+// This matches the gosftp.Client interface for testability.
+type GoSFTPClientInterface interface {
+	Close() error
+	UploadFile(ctx context.Context, localPath, remotePath string) error
+	GetFileHash(ctx context.Context, remotePath string) (string, error)
+	SetFileAttributes(ctx context.Context, remotePath, owner, group, mode string) error
+	DeleteFile(ctx context.Context, remotePath string) error
+	FileExists(ctx context.Context, remotePath string) (bool, error)
+	GetFileInfo(ctx context.Context, remotePath string) (os.FileInfo, error)
+	ReadFileContent(ctx context.Context, remotePath string, maxBytes int64) ([]byte, error)
+}
+
 // Client wraps gosftp and SSH connections for file operations.
 type Client struct {
-	gosftpClient *gosftp.Client
+	gosftpClient GoSFTPClientInterface
 	sshClient    *ssh.Client
 	config       Config
+	deps         *Dependencies
 }
 
 var _ ClientInterface = (*Client)(nil)
 
 // NewClient creates a new SSH/SFTP client using gosftp.
+// Uses default production dependencies. For testing, use NewClientFactory.
 func NewClient(config Config) (*Client, error) {
-	gosftpConfig := gosftp.Config{
-		Host:                  config.Host,
-		Port:                  config.Port,
-		User:                  config.User,
-		AuthMethod:            gosftp.AuthMethod(config.AuthMethod),
-		PrivateKey:            config.PrivateKey,
-		KeyPath:               config.KeyPath,
-		Password:              config.Password,
-		Certificate:           config.Certificate,
-		CertificatePath:       config.CertificatePath,
-		Timeout:               config.Timeout,
-		KnownHostsFile:        config.KnownHostsFile,
-		InsecureIgnoreHostKey: config.InsecureIgnoreHostKey,
-		BastionHost:           config.BastionHost,
-		BastionPort:           config.BastionPort,
-		BastionUser:           config.BastionUser,
-		BastionKey:            config.BastionKey,
-		BastionKeyPath:        config.BastionKeyPath,
-		BastionPassword:       config.BastionPassword,
-	}
-
-	gosftpClient, err := gosftp.NewClient(gosftpConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gosftp client: %w", err)
-	}
-
-	// For RunCommand support, we need the underlying SSH client
-	// We'll keep a separate SSH client for command execution
-	var sshClient *ssh.Client
-
-	return &Client{
-		gosftpClient: gosftpClient,
-		sshClient:    sshClient,
-		config:       config,
-	}, nil
+	return newClientWithDeps(config, DefaultDependencies())
 }
 
 func connectToBastion(config Config, timeout time.Duration) (*ssh.Client, error) {
-	var authMethods []ssh.AuthMethod
-
-	if config.BastionPassword != "" {
-		authMethods = append(authMethods, ssh.Password(config.BastionPassword))
-	} else {
-		var keyData []byte
-		var err error
-
-		if config.BastionKey != "" {
-			keyData = []byte(config.BastionKey)
-		} else if config.BastionKeyPath != "" {
-			keyData, err = os.ReadFile(ExpandPath(config.BastionKeyPath))
-			if err != nil {
-				return nil, fmt.Errorf("failed to read bastion key file: %w", err)
-			}
-		} else {
-			if config.PrivateKey != "" {
-				keyData = []byte(config.PrivateKey)
-			} else if config.KeyPath != "" {
-				keyData, err = os.ReadFile(ExpandPath(config.KeyPath))
-				if err != nil {
-					return nil, fmt.Errorf("failed to read key file for bastion: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("no SSH key configured for bastion host")
-			}
-		}
-
-		signer, err := ssh.ParsePrivateKey(keyData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse bastion SSH key: %w", err)
-		}
-		authMethods = append(authMethods, ssh.PublicKeys(signer))
-	}
-
-	bastionUser := config.BastionUser
-	if bastionUser == "" {
-		bastionUser = config.User
-	}
-
-	bastionPort := config.BastionPort
-	if bastionPort == 0 {
-		bastionPort = 22
-	}
-
-	hostKeyCallback, err := buildHostKeyCallback(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to configure host key verification for bastion: %w", err)
-	}
-
-	bastionConfig := &ssh.ClientConfig{
-		User:            bastionUser,
-		Auth:            authMethods,
-		HostKeyCallback: hostKeyCallback,
-		Timeout:         timeout,
-	}
-
-	bastionAddr := fmt.Sprintf("%s:%d", config.BastionHost, bastionPort)
-	return ssh.Dial("tcp", bastionAddr, bastionConfig)
+	return connectToBastionWithDeps(config, timeout, DefaultDependencies())
 }
 
 func buildHostKeyCallback(config Config) (ssh.HostKeyCallback, error) {
-	if config.InsecureIgnoreHostKey {
-		return ssh.InsecureIgnoreHostKey(), nil
-	}
-
-	if config.KnownHostsFile != "" {
-		expandedPath := ExpandPath(config.KnownHostsFile)
-		callback, err := knownhosts.New(expandedPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load known_hosts file %s: %w", expandedPath, err)
-		}
-		return callback, nil
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
-		defaultKnownHosts := filepath.Join(homeDir, ".ssh", "known_hosts")
-		if _, err := os.Stat(defaultKnownHosts); err == nil {
-			callback, err := knownhosts.New(defaultKnownHosts)
-			if err == nil {
-				return callback, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("no known_hosts file found and insecure_ignore_host_key is not set; either set insecure_ignore_host_key=true for development/testing or configure known_hosts_file")
+	return buildHostKeyCallbackWithDeps(config, DefaultDependencies())
 }
 
 // ExpandPath expands ~ to home directory.
@@ -264,36 +160,7 @@ func ValidateMode(mode string) error {
 }
 
 func buildAuthMethods(config Config) ([]ssh.AuthMethod, error) {
-	var authMethods []ssh.AuthMethod
-
-	authMethod := config.AuthMethod
-	if authMethod == "" {
-		authMethod = inferAuthMethod(config)
-	}
-
-	switch authMethod {
-	case AuthMethodPassword:
-		if config.Password == "" {
-			return nil, fmt.Errorf("password authentication requires password to be set")
-		}
-		authMethods = append(authMethods, ssh.Password(config.Password))
-
-	case AuthMethodCertificate:
-		certAuth, err := buildCertificateAuth(config)
-		if err != nil {
-			return nil, fmt.Errorf("certificate authentication failed: %w", err)
-		}
-		authMethods = append(authMethods, certAuth)
-
-	case AuthMethodPrivateKey, "":
-		keyAuth, err := buildPrivateKeyAuth(config)
-		if err != nil {
-			return nil, err
-		}
-		authMethods = append(authMethods, keyAuth)
-	}
-
-	return authMethods, nil
+	return buildAuthMethodsWithDeps(config, DefaultDependencies())
 }
 
 func inferAuthMethod(config Config) AuthMethod {
@@ -307,76 +174,11 @@ func inferAuthMethod(config Config) AuthMethod {
 }
 
 func buildPrivateKeyAuth(config Config) (ssh.AuthMethod, error) {
-	var keyData []byte
-	var err error
-
-	if config.PrivateKey != "" {
-		keyData = []byte(config.PrivateKey)
-	} else if config.KeyPath != "" {
-		keyData, err = os.ReadFile(ExpandPath(config.KeyPath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read SSH key file: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("no SSH private key provided (set private_key or key_path)")
-	}
-
-	signer, err := ssh.ParsePrivateKey(keyData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse SSH private key: %w", err)
-	}
-
-	return ssh.PublicKeys(signer), nil
+	return buildPrivateKeyAuthWithDeps(config, DefaultDependencies())
 }
 
 func buildCertificateAuth(config Config) (ssh.AuthMethod, error) {
-	var keyData []byte
-	var err error
-
-	if config.PrivateKey != "" {
-		keyData = []byte(config.PrivateKey)
-	} else if config.KeyPath != "" {
-		keyData, err = os.ReadFile(ExpandPath(config.KeyPath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read private key file: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("certificate auth requires private key (set private_key or key_path)")
-	}
-
-	signer, err := ssh.ParsePrivateKey(keyData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
-	}
-
-	var certData []byte
-	if config.Certificate != "" {
-		certData = []byte(config.Certificate)
-	} else if config.CertificatePath != "" {
-		certData, err = os.ReadFile(ExpandPath(config.CertificatePath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read certificate file: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("certificate auth requires certificate (set certificate or certificate_path)")
-	}
-
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(certData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse certificate: %w", err)
-	}
-
-	cert, ok := pubKey.(*ssh.Certificate)
-	if !ok {
-		return nil, fmt.Errorf("provided file is not an SSH certificate")
-	}
-
-	certSigner, err := ssh.NewCertSigner(cert, signer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create certificate signer: %w", err)
-	}
-
-	return ssh.PublicKeys(certSigner), nil
+	return buildCertificateAuthWithDeps(config, DefaultDependencies())
 }
 
 // Close closes the gosftp client and SSH connections.
@@ -455,114 +257,11 @@ func (c *Client) ReadFileContent(ctx context.Context, remotePath string, maxByte
 // RunCommand executes a command on the remote host.
 // Returns stdout, stderr, and any error.
 func (c *Client) RunCommand(ctx context.Context, command string) (string, string, error) {
-	// Check if context is already cancelled
-	if err := ctx.Err(); err != nil {
-		return "", "", fmt.Errorf("context already cancelled: %w", err)
+	deps := c.deps
+	if deps == nil {
+		deps = DefaultDependencies()
 	}
-
-	// For now, we need to create an SSH client for command execution
-	// since gosftp focuses on SFTP operations
-	authMethods, err := buildAuthMethods(c.config)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to build auth methods: %w", err)
-	}
-
-	hostKeyCallback, err := buildHostKeyCallback(c.config)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to build host key callback: %w", err)
-	}
-
-	timeout := c.config.Timeout
-	if timeout == 0 {
-		timeout = 30 * time.Second
-	}
-
-	// If context has a deadline, use the smaller of context deadline and configured timeout
-	if deadline, ok := ctx.Deadline(); ok {
-		timeUntilDeadline := time.Until(deadline)
-		if timeUntilDeadline > 0 && timeUntilDeadline < timeout {
-			timeout = timeUntilDeadline
-		}
-	}
-
-	port := c.config.Port
-	if port == 0 {
-		port = 22
-	}
-
-	sshConfig := &ssh.ClientConfig{
-		User:            c.config.User,
-		Auth:            authMethods,
-		HostKeyCallback: hostKeyCallback,
-		Timeout:         timeout,
-	}
-
-	targetAddr := fmt.Sprintf("%s:%d", c.config.Host, port)
-
-	// Check context before establishing connections
-	if err := ctx.Err(); err != nil {
-		return "", "", fmt.Errorf("context cancelled before connecting: %w", err)
-	}
-
-	var sshClient *ssh.Client
-	var bastionClient *ssh.Client
-
-	if c.config.BastionHost != "" {
-		bastionClient, err = connectToBastion(c.config, timeout)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to connect to bastion host: %w", err)
-		}
-		defer func() {
-			if closeErr := bastionClient.Close(); closeErr != nil {
-				// Log but don't fail - bastion close error shouldn't block command execution
-				_ = closeErr
-			}
-		}()
-
-		conn, err := bastionClient.Dial("tcp", targetAddr)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to dial target through bastion: %w", err)
-		}
-
-		ncc, chans, reqs, err := ssh.NewClientConn(conn, targetAddr, sshConfig)
-		if err != nil {
-			if closeErr := conn.Close(); closeErr != nil {
-				_ = closeErr
-			}
-			return "", "", fmt.Errorf("failed to create SSH connection through bastion: %w", err)
-		}
-
-		sshClient = ssh.NewClient(ncc, chans, reqs)
-	} else {
-		sshClient, err = ssh.Dial("tcp", targetAddr, sshConfig)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to connect to %s: %w", targetAddr, err)
-		}
-	}
-	defer func() {
-		if closeErr := sshClient.Close(); closeErr != nil {
-			// Log but don't fail - close error shouldn't block command result
-			_ = closeErr
-		}
-	}()
-
-	session, err := sshClient.NewSession()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create SSH session: %w", err)
-	}
-	defer func() {
-		if closeErr := session.Close(); closeErr != nil {
-			// Log but don't fail - close error shouldn't block command result
-			_ = closeErr
-		}
-	}()
-
-	var stdout, stderr bytes.Buffer
-	session.Stdout = &stdout
-	session.Stderr = &stderr
-
-	err = session.Run(command)
-	return stdout.String(), stderr.String(), err
+	return c.runCommandWithDeps(ctx, command, deps)
 }
 
 // IsBinaryContent checks if content appears to be binary.

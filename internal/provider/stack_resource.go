@@ -105,7 +105,7 @@ Manages a Docker Compose stack on a remote host via SSH.
 ## Example Usage
 
 ` + "```hcl" + `
-resource "docker_compose_stack" "web" {
+resource "remote_docker_compose_file_stack" "web" {
   host        = "192.168.1.100"
   remote_path = "/opt/stacks/web/docker-compose.yaml"
   content     = file("${path.module}/docker-compose.yaml")

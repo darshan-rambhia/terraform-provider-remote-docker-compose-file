@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/darshan-rambhia/docker-compose",
+		Address: "registry.terraform.io/darshan-rambhia/remote-docker-compose-file",
 		Debug:   debug,
 	}
 

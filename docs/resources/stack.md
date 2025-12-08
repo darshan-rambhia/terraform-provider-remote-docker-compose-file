@@ -10,7 +10,7 @@ description: |-
   Terraform tracks the compose file, not container stateThe 'up' flag is a convenience operation; containers may drift outside TerraformRemote host must have Docker and 'docker compose' (v2) installed
   Example Usage
   
-  resource "docker_compose_stack" "web" {
+  resource "remote_docker_compose_file_stack" "web" {
     host        = "192.168.1.100"
     remote_path = "/opt/stacks/web/docker-compose.yaml"
     content     = file("${path.module}/docker-compose.yaml")
@@ -42,7 +42,7 @@ Manages a Docker Compose stack on a remote host via SSH.
 ## Example Usage
 
 ```hcl
-resource "docker_compose_stack" "web" {
+resource "remote_docker_compose_file_stack" "web" {
   host        = "192.168.1.100"
   remote_path = "/opt/stacks/web/docker-compose.yaml"
   content     = file("${path.module}/docker-compose.yaml")

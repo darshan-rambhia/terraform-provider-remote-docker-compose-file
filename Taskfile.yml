@@ -3,7 +3,7 @@ version: '3'
 vars:
   HOSTNAME: registry.terraform.io
   NAMESPACE: darshan-rambhia
-  NAME: docker-compose
+  NAME: remote-docker-compose-file
   BINARY: terraform-provider-{{.NAME}}
   VERSION: 0.1.0
   OS_ARCH:

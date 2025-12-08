@@ -16,13 +16,13 @@ func TestStackResource_Metadata(t *testing.T) {
 	t.Parallel()
 
 	r := NewStackResource()
-	req := resource.MetadataRequest{ProviderTypeName: "docker_compose"}
+	req := resource.MetadataRequest{ProviderTypeName: "remote_docker_compose_file"}
 	resp := &resource.MetadataResponse{}
 
 	r.Metadata(context.Background(), req, resp)
 
-	if resp.TypeName != "docker_compose_stack" {
-		t.Errorf("Metadata() TypeName = %q, want %q", resp.TypeName, "docker_compose_stack")
+	if resp.TypeName != "remote_docker_compose_file_stack" {
+		t.Errorf("Metadata() TypeName = %q, want %q", resp.TypeName, "remote_docker_compose_file_stack")
 	}
 }
 

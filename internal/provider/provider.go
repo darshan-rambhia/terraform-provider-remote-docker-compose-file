@@ -59,7 +59,7 @@ func (p *DockerComposeProvider) Metadata(ctx context.Context, req provider.Metad
 func (p *DockerComposeProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: `
-The docker_compose provider manages Docker Compose files on remote hosts via SSH.
+The remote_docker_compose_file provider manages Docker Compose files on remote hosts via SSH.
 
 This provider:
 - Uploads docker-compose files to remote hosts

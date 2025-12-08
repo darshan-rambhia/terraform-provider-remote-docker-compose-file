@@ -5,7 +5,6 @@ A Terraform provider for managing Docker Compose files on remote hosts via SSH.
 [![Tests](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/test.yml/badge.svg)](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/test.yml)
 [![Lint](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/lint.yml/badge.svg)](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/lint.yml)
 [![codecov](https://codecov.io/gh/darshan-rambhia/terraform-provider-remote-docker-compose-file/graph/badge.svg)](https://codecov.io/gh/darshan-rambhia/terraform-provider-remote-docker-compose-file)
-[![Terraform Registry Version](https://img.shields.io/badge/registry-v0.1.0-blue?logo=terraform)](https://registry.terraform.io/providers/darshan-rambhia/remote-docker-compose-file/latest)
 [![Go Version](https://img.shields.io/badge/go-1.24-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
