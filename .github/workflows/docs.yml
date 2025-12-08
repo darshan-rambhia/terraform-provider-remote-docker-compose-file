@@ -1,0 +1,48 @@
+# Verify documentation is up to date
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - 'internal/**'
+      - 'docs/**'
+      - 'templates/**'
+      - 'examples/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'internal/**'
+      - 'docs/**'
+      - 'templates/**'
+      - 'examples/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: hashicorp/setup-terraform@v3
+      - uses: arduino/setup-task@v2
+      - name: Generate docs
+        run: task docs
+      - name: Check for changes
+        run: |
+          if [[ -n $(git status --porcelain docs/) ]]; then
+            echo "::error::Documentation is out of date. Run 'task docs' and commit the changes."
+            git diff docs/
+            exit 1
+          fi

@@ -1,0 +1,122 @@
+# Terraform Provider testing workflow.
+name: Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+      - './docs.yml'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Build and lint
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - run: go mod download
+      - run: go build -v .
+      - name: Run linters
+        uses: golangci/golangci-lint-action@v9.2.0
+        with:
+          version: v2.7.1
+
+  # Unit tests - fast, no Docker required, runs in parallel with build
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - run: go mod download
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+      - name: Run unit tests with coverage
+        run: gotestsum --junitfile test-results.xml -- -short -race -coverprofile=coverage.out -covermode=atomic ./internal/...
+        timeout-minutes: 5
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Test Summary
+        uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: test-results.xml
+
+  # Acceptance tests - requires Docker for testcontainers
+  acceptance-test:
+    name: Acceptance Tests (${{ matrix.tool }} ${{ matrix.version }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Terraform versions
+          - tool: terraform
+            version: '1.6.*'
+          - tool: terraform
+            version: '1.7.*'
+          - tool: terraform
+            version: '1.8.*'
+          - tool: terraform
+            version: '1.9.*'
+          # OpenTofu versions
+          - tool: opentofu
+            version: '1.6.*'
+          - tool: opentofu
+            version: '1.7.*'
+          - tool: opentofu
+            version: '1.8.*'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Setup Terraform
+        if: matrix.tool == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ matrix.version }}
+          terraform_wrapper: false
+      - name: Setup OpenTofu
+        if: matrix.tool == 'opentofu'
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ matrix.version }}
+          tofu_wrapper: false
+      - run: go mod download
+      - name: Run acceptance tests
+        run: go test -v -timeout 25m ./tests/acceptance -parallel-containers=5
+        timeout-minutes: 25
+        env:
+          TF_ACC: "1"
