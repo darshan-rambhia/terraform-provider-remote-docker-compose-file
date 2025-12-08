@@ -2,9 +2,17 @@
 
 A Terraform provider for managing Docker Compose files on remote hosts via SSH.
 
+[![Tests](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/test.yml/badge.svg)](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/test.yml)
+[![Lint](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/lint.yml/badge.svg)](https://github.com/darshan-rambhia/terraform-provider-remote-docker-compose-file/actions/workflows/lint.yml)
+[![codecov](https://codecov.io/gh/darshan-rambhia/terraform-provider-remote-docker-compose-file/graph/badge.svg)](https://codecov.io/gh/darshan-rambhia/terraform-provider-remote-docker-compose-file)
+[![Terraform Registry Version](https://img.shields.io/badge/registry-v0.1.0-blue?logo=terraform)](https://registry.terraform.io/providers/darshan-rambhia/remote-docker-compose-file/latest)
+[![Go Version](https://img.shields.io/badge/go-1.24-00ADD8?logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 ## Overview
 
 The `remote-docker-compose-file` provider enables you to:
+
 - Upload Docker Compose files to remote hosts
 - Optionally validate compose files before applying
 - Optionally run `docker compose up -d` to start services
@@ -145,17 +153,20 @@ resource "remote_docker_compose_file_stack" "internal" {
 ## Behavior
 
 ### Create
+
 1. Creates SSH connection to target host
 2. Uploads Docker Compose file to `remote_path`
 3. If `validate = true`, runs `docker compose config` to validate
 4. If `up = true`, runs `docker compose up -d`
 
 ### Read
+
 1. Connects to remote host
 2. Retrieves the current file hash for drift detection
 3. Marks resource as removed if file no longer exists
 
 ### Update
+
 1. Detects if content has changed
 2. If content differs:
    - Runs `docker compose down` (if `up = true`)
@@ -163,10 +174,12 @@ resource "remote_docker_compose_file_stack" "internal" {
    - Runs `docker compose up -d` (if `up = true`)
 
 ### Delete
+
 1. Runs `docker compose down` (if `up = true`)
 2. Removes the compose file from remote host
 
 ### Import
+
 Import existing compose files by their deployment ID (format: `hostname:path`):
 
 ```bash
@@ -186,7 +199,7 @@ See the [examples](./examples/) directory for more detailed usage patterns.
 
 ## Development
 
-### Requirements
+### Development Requirements
 
 - Go 1.21 or later
 - Terraform CLI (for testing)
@@ -241,6 +254,7 @@ If using Compose V1, the `validate` argument will fail. Update to Compose V2.
 ### Permission Denied
 
 Ensure the SSH user has:
+
 - Read/write access to `remote_path` directory
 - Permission to run `docker compose` commands
 - Proper Docker group membership or sudo access
