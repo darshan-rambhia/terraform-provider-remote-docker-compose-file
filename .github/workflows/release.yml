@@ -1,25 +1,29 @@
 # Release workflow
-# Triggered when a version tag is pushed.
+# Manually triggered to create a new release.
 #
 # Usage:
-# 1. Create and push a tag locally:
-#    git tag v1.2.3
-#    git push origin v1.2.3
+# - Go to Actions → Release → Run workflow
+# - Optionally provide a tag (e.g., v1.2.0)
+# - Leave tag empty to auto-increment patch version
 #
-# 2. The workflow will automatically run tests and create the release.
-#
-# Note: Tags must be created locally because GitHub Actions cannot create
-# refs pointing to commits that contain workflow file changes.
+# Version bump rules (when auto-incrementing):
+# - Default: bumps patch version (v0.1.0 -> v0.1.1)
+# - Use #minor in last commit for minor bump (v0.1.0 -> v0.2.0)
+# - Use #major in last commit for major bump (v0.1.0 -> v1.0.0)
 name: Release
-run-name: Release ${{ github.ref_name }}
+run-name: Release ${{ inputs.tag || 'auto-increment' }} from ${{ github.ref_name }}
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag version (e.g., v1.2.3). Leave empty for auto-increment patch.'
+        required: false
+        type: string
 
 permissions:
   contents: write
+
 
 jobs:
   # Run tests before releasing
@@ -38,15 +42,64 @@ jobs:
         run: go test -v -short -race ./internal/...
         timeout-minutes: 5
 
+  # Create tag
+  tag:
+    name: Create Tag
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.manual.outputs.tag || steps.auto.outputs.new_tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Validate manual tag format if provided
+      - name: Validate tag format
+        if: inputs.tag != ''
+        run: |
+          if ! echo "${{ inputs.tag }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Invalid tag format: '${{ inputs.tag }}'"
+            echo "Tag must follow semver format: vX.Y.Z (e.g., v0.1.0, v1.2.3-beta.1)"
+            exit 1
+          fi
+          echo "✓ Tag format valid: ${{ inputs.tag }}"
+
+      # Use manual tag if provided
+      - name: Create manual tag
+        id: manual
+        if: inputs.tag != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ inputs.tag }}
+          git push origin ${{ inputs.tag }}
+          echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+
+      # Auto-increment if no manual tag
+      - name: Auto-increment tag
+        id: auto
+        if: inputs.tag == ''
+        uses: anothrNick/github-tag-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+          RELEASE_BRANCHES: main
+          TAG_CONTEXT: repo
+
   # Run GoReleaser
   release:
     name: GoReleaser
-    needs: test
+    needs: tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ needs.tag.outputs.tag }}
 
       - uses: actions/setup-go@v6
         with:
