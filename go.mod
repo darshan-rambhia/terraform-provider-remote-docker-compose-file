@@ -2,11 +2,8 @@ module github.com/darshan-rambhia/terraform-provider-docker-compose
 
 go 1.24.0
 
-// Use local gosftp during development - remove before release
-replace github.com/darshan-rambhia/gosftp => ../gosftp
-
 require (
-	github.com/darshan-rambhia/gosftp v0.1.0
+	github.com/darshan-rambhia/gosftp v0.2.0
 	github.com/hashicorp/terraform-plugin-docs v0.24.0
 	github.com/hashicorp/terraform-plugin-framework v1.17.0
 	github.com/hashicorp/terraform-plugin-go v0.29.0
