@@ -1,0 +1,80 @@
+---
+page_title: "remote_docker_compose_file_stack Resource - remote-docker-compose-file"
+subcategory: ""
+description: |-
+  Manages a Docker Compose stack on a remote host via SSH.
+---
+
+# remote_docker_compose_file_stack (Resource)
+
+Manages a Docker Compose stack on a remote host via SSH.
+
+## Behavior
+
+- **Create**: Uploads compose file, optionally validates, optionally runs 'docker compose up -d'
+- **Read**: Retrieves remote file hash for drift detection
+- **Update**: If content changes, runs 'docker compose down' (if up=true), uploads new file, runs 'docker compose up -d'
+- **Delete**: Runs 'docker compose down', removes compose file
+
+## Important Notes
+
+- Terraform tracks the **compose file**, not container state
+- The 'up' flag is a convenience operation; containers may drift outside Terraform
+- Remote host must have Docker and 'docker compose' (v2) installed
+
+## Example Usage
+
+```terraform
+resource "remote_docker_compose_file_stack" "web" {
+  host        = "192.168.1.100"
+  remote_path = "/opt/stacks/web/docker-compose.yaml"
+  content     = file("${path.module}/docker-compose.yaml")
+  up          = true
+  validate    = true
+
+  ssh_user     = "deploy"
+  ssh_key_path = "~/.ssh/deploy_key"
+}
+```
+
+## Schema
+
+### Required
+
+- `content` (String) Content of the docker-compose file.
+- `host` (String) Remote host address (IP or hostname).
+- `remote_path` (String) Absolute path on the remote host where the compose file should be placed.
+
+### Optional
+
+- `bastion_host` (String) Bastion/jump host address for multi-hop SSH connections.
+- `bastion_key_path` (String) Path to SSH private key file for bastion host. Falls back to ssh_key_path if not set.
+- `bastion_password` (String, Sensitive) SSH password for bastion host (sensitive).
+- `bastion_port` (Number) Bastion host SSH port. Defaults to 22.
+- `bastion_private_key` (String, Sensitive) SSH private key content for bastion host (sensitive). Falls back to ssh_private_key if not set.
+- `bastion_user` (String) SSH user for bastion host. Falls back to ssh_user if not set.
+- `insecure_ignore_host_key` (Boolean) Skip SSH host key verification. WARNING: Insecure. Defaults to false. Deprecated: Use strict_host_key_checking = "no" instead.
+- `known_hosts_file` (String) Path to a custom known_hosts file for SSH host key verification. Defaults to ~/.ssh/known_hosts.
+- `ssh_certificate` (String, Sensitive) SSH certificate content for certificate authentication. Used with ssh_private_key or ssh_key_path.
+- `ssh_certificate_path` (String) Path to SSH certificate file for certificate authentication.
+- `ssh_key_path` (String) Path to SSH private key file. Mutually exclusive with ssh_private_key.
+- `ssh_password` (String, Sensitive) SSH password for password authentication.
+- `ssh_port` (Number) SSH port. Defaults to 22.
+- `ssh_private_key` (String, Sensitive) SSH private key content. Mutually exclusive with ssh_key_path.
+- `ssh_user` (String) SSH user. Overrides provider default.
+- `strict_host_key_checking` (String) SSH host key checking mode. Valid values: "yes" (default, requires host key in known_hosts), "no" (insecure, skip verification), "accept-new" (accept and save new host keys, reject changed keys).
+- `up` (Boolean) Run 'docker compose up -d' after uploading. Defaults to false.
+- `validate` (Boolean) Validate compose file with 'docker compose config' before applying. Defaults to true.
+
+### Read-Only
+
+- `content_hash` (String) SHA256 hash of the compose file content.
+- `id` (String) Resource identifier (host:remote_path).
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+terraform import remote_docker_compose_file_stack.web 192.168.1.100:/opt/stacks/web/docker-compose.yaml
+```

@@ -1,13 +1,13 @@
 terraform {
   required_providers {
-    remote_docker_compose_file = {
+    remote-docker-compose-file = {
       source  = "darshan-rambhia/remote-docker-compose-file"
       version = "~> 0.1"
     }
   }
 }
 
-provider "remote_docker_compose_file" {
+provider "remote-docker-compose-file" {
   ssh_user     = "root"
   ssh_key_path = "~/.ssh/id_ed25519"
 }

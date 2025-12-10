@@ -40,7 +40,9 @@ type DockerComposeProviderModel struct {
 	BastionPassword types.String `tfsdk:"bastion_password"`
 
 	// Host key verification.
-	InsecureIgnoreHostKey types.Bool `tfsdk:"insecure_ignore_host_key"`
+	InsecureIgnoreHostKey types.Bool   `tfsdk:"insecure_ignore_host_key"`
+	KnownHostsFile        types.String `tfsdk:"known_hosts_file"`
+	StrictHostKeyChecking types.String `tfsdk:"strict_host_key_checking"`
 }
 
 func New(version string) func() provider.Provider {
@@ -52,7 +54,7 @@ func New(version string) func() provider.Provider {
 }
 
 func (p *DockerComposeProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "remote-docker-compose-file"
+	resp.TypeName = "remote_docker_compose_file"
 	resp.Version = p.version
 }
 
@@ -71,7 +73,7 @@ This provider:
 ## Example Usage
 
 ` + "```hcl" + `
-provider "remote_docker_compose_file" {
+provider "remote-docker-compose-file" {
   ssh_user     = "root"
   ssh_key_path = "~/.ssh/id_ed25519"
 }
@@ -143,7 +145,15 @@ resource "remote_docker_compose_file_stack" "app" {
 				Sensitive:           true,
 			},
 			"insecure_ignore_host_key": schema.BoolAttribute{
-				MarkdownDescription: "Skip SSH host key verification. WARNING: This is insecure and should only be used for testing. Defaults to false.",
+				MarkdownDescription: "Skip SSH host key verification. WARNING: This is insecure and should only be used for testing. Defaults to false. Deprecated: Use strict_host_key_checking = \"no\" instead.",
+				Optional:            true,
+			},
+			"known_hosts_file": schema.StringAttribute{
+				MarkdownDescription: "Path to a custom known_hosts file for SSH host key verification. Defaults to ~/.ssh/known_hosts.",
+				Optional:            true,
+			},
+			"strict_host_key_checking": schema.StringAttribute{
+				MarkdownDescription: "SSH host key checking mode. Valid values: \"yes\" (default, requires host key in known_hosts), \"no\" (insecure, skip verification), \"accept-new\" (accept and save new host keys, reject changed keys).",
 				Optional:            true,
 			},
 		},

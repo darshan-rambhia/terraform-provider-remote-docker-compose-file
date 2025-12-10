@@ -18,8 +18,8 @@ func TestDockerComposeProvider_Metadata(t *testing.T) {
 
 	p.Metadata(context.Background(), req, resp)
 
-	if resp.TypeName != "remote-docker-compose-file" {
-		t.Errorf("Metadata() TypeName = %q, want %q", resp.TypeName, "remote-docker-compose-file")
+	if resp.TypeName != "remote_docker_compose_file" {
+		t.Errorf("Metadata() TypeName = %q, want %q", resp.TypeName, "remote_docker_compose_file")
 	}
 	if resp.Version != "test" {
 		t.Errorf("Metadata() Version = %q, want %q", resp.Version, "test")
@@ -100,6 +100,8 @@ func TestDockerComposeProvider_Configure(t *testing.T) {
 				"bastion_key_path":         tftypes.NewValue(tftypes.String, nil),
 				"bastion_password":         tftypes.NewValue(tftypes.String, nil),
 				"insecure_ignore_host_key": tftypes.NewValue(tftypes.Bool, nil),
+				"known_hosts_file":         tftypes.NewValue(tftypes.String, nil),
+				"strict_host_key_checking": tftypes.NewValue(tftypes.String, nil),
 			},
 			wantErr: false,
 		},
@@ -120,6 +122,8 @@ func TestDockerComposeProvider_Configure(t *testing.T) {
 				"bastion_key_path":         tftypes.NewValue(tftypes.String, nil),
 				"bastion_password":         tftypes.NewValue(tftypes.String, nil),
 				"insecure_ignore_host_key": tftypes.NewValue(tftypes.Bool, true),
+				"known_hosts_file":         tftypes.NewValue(tftypes.String, nil),
+				"strict_host_key_checking": tftypes.NewValue(tftypes.String, nil),
 			},
 			wantErr: false,
 		},
@@ -140,6 +144,8 @@ func TestDockerComposeProvider_Configure(t *testing.T) {
 				"bastion_key_path":         tftypes.NewValue(tftypes.String, nil),
 				"bastion_password":         tftypes.NewValue(tftypes.String, nil),
 				"insecure_ignore_host_key": tftypes.NewValue(tftypes.Bool, false),
+				"known_hosts_file":         tftypes.NewValue(tftypes.String, nil),
+				"strict_host_key_checking": tftypes.NewValue(tftypes.String, nil),
 			},
 			wantErr: false,
 		},

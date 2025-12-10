@@ -69,7 +69,9 @@ type StackResourceModel struct {
 	BastionPassword types.String `tfsdk:"bastion_password"`
 
 	// Optional - security settings.
-	InsecureIgnoreHostKey types.Bool `tfsdk:"insecure_ignore_host_key"`
+	InsecureIgnoreHostKey types.Bool   `tfsdk:"insecure_ignore_host_key"`
+	KnownHostsFile        types.String `tfsdk:"known_hosts_file"`
+	StrictHostKeyChecking types.String `tfsdk:"strict_host_key_checking"`
 
 	// Optional - lifecycle settings.
 	Up       types.Bool `tfsdk:"up"`
@@ -199,7 +201,15 @@ resource "remote_docker_compose_file_stack" "web" {
 
 			// Optional - security settings.
 			"insecure_ignore_host_key": schema.BoolAttribute{
-				MarkdownDescription: "Skip SSH host key verification. WARNING: Insecure. Defaults to false.",
+				MarkdownDescription: "Skip SSH host key verification. WARNING: Insecure. Defaults to false. Deprecated: Use strict_host_key_checking = \"no\" instead.",
+				Optional:            true,
+			},
+			"known_hosts_file": schema.StringAttribute{
+				MarkdownDescription: "Path to a custom known_hosts file for SSH host key verification. Defaults to ~/.ssh/known_hosts.",
+				Optional:            true,
+			},
+			"strict_host_key_checking": schema.StringAttribute{
+				MarkdownDescription: "SSH host key checking mode. Valid values: \"yes\" (default, requires host key in known_hosts), \"no\" (insecure, skip verification), \"accept-new\" (accept and save new host keys, reject changed keys).",
 				Optional:            true,
 			},
 
@@ -551,10 +561,30 @@ func (r *StackResource) getSSHConfig(data *StackResourceModel) ssh.Config {
 	}
 
 	// Check insecure host key setting.
-	if !data.InsecureIgnoreHostKey.IsNull() && data.InsecureIgnoreHostKey.ValueBool() {
-		config.InsecureIgnoreHostKey = true
+	// Resource-level setting takes precedence over provider-level if explicitly set.
+	if !data.InsecureIgnoreHostKey.IsNull() {
+		// Resource explicitly set this value (true or false), use it.
+		config.InsecureIgnoreHostKey = data.InsecureIgnoreHostKey.ValueBool()
 	} else if r.providerConfig != nil && !r.providerConfig.InsecureIgnoreHostKey.IsNull() {
+		// Resource didn't set it, fall back to provider-level setting.
 		config.InsecureIgnoreHostKey = r.providerConfig.InsecureIgnoreHostKey.ValueBool()
+	}
+
+	// Check known_hosts_file setting.
+	// Resource-level setting takes precedence over provider-level if set.
+	if !data.KnownHostsFile.IsNull() && data.KnownHostsFile.ValueString() != "" {
+		config.KnownHostsFile = data.KnownHostsFile.ValueString()
+	} else if r.providerConfig != nil && !r.providerConfig.KnownHostsFile.IsNull() && r.providerConfig.KnownHostsFile.ValueString() != "" {
+		config.KnownHostsFile = r.providerConfig.KnownHostsFile.ValueString()
+	}
+
+	// Check strict_host_key_checking setting.
+	// Resource-level setting takes precedence over provider-level if set.
+	// Valid values: "yes", "no", "accept-new"
+	if !data.StrictHostKeyChecking.IsNull() && data.StrictHostKeyChecking.ValueString() != "" {
+		config.StrictHostKeyChecking = data.StrictHostKeyChecking.ValueString()
+	} else if r.providerConfig != nil && !r.providerConfig.StrictHostKeyChecking.IsNull() && r.providerConfig.StrictHostKeyChecking.ValueString() != "" {
+		config.StrictHostKeyChecking = r.providerConfig.StrictHostKeyChecking.ValueString()
 	}
 
 	return config

@@ -113,6 +113,7 @@ func newClientWithDeps(config Config, deps *Dependencies) (*Client, error) {
 		Timeout:               config.Timeout,
 		KnownHostsFile:        config.KnownHostsFile,
 		InsecureIgnoreHostKey: config.InsecureIgnoreHostKey,
+		StrictHostKeyChecking: gosftp.StrictHostKeyChecking(config.StrictHostKeyChecking),
 		BastionHost:           config.BastionHost,
 		BastionPort:           config.BastionPort,
 		BastionUser:           config.BastionUser,

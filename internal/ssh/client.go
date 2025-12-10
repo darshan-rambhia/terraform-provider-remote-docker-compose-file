@@ -50,6 +50,7 @@ type Config struct {
 	// Host key verification.
 	KnownHostsFile        string // Path to known_hosts file
 	InsecureIgnoreHostKey bool   // Skip host key verification (DANGEROUS)
+	StrictHostKeyChecking string // "yes", "no", or "accept-new" (OpenSSH-style)
 
 	// Bastion/Jump host configuration for multihop SSH.
 	BastionHost     string
