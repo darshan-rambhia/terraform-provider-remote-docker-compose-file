@@ -104,7 +104,7 @@ jobs:
           cache: true
       - name: Setup Terraform
         if: matrix.tool == 'terraform'
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ matrix.version }}
           terraform_wrapper: false
