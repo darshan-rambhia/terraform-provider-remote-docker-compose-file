@@ -58,7 +58,7 @@ jobs:
         run: gotestsum --junitfile test-results.xml -- -short -race -coverprofile=coverage.out -covermode=atomic ./internal/...
         timeout-minutes: 5
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.out
           flags: unittests
