@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -220,16 +218,10 @@ func createPoolContainer(t *testing.T, index int) (*SSHDockerContainer, error) {
 		return nil, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 
-	portNum, err := strconv.Atoi(strings.SplitN(string(mappedPort), "/", 2)[0])
-	if err != nil {
-		_ = container.Terminate(ctx)
-		return nil, fmt.Errorf("failed to parse mapped port: %w", err)
-	}
-
 	sshContainer := &SSHDockerContainer{
 		Container:      container,
 		Host:           host,
-		Port:           portNum,
+		Port:           int(mappedPort.Num()),
 		User:           "testuser",
 		PrivateKey:     privateKey,
 		PrivateKeyPath: keyPath,
