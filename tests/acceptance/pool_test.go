@@ -232,7 +232,7 @@ func createPoolContainer(t *testing.T, index int) (*SSHDockerContainer, error) {
 		return nil, fmt.Errorf("SSH not ready: %w", err)
 	}
 
-	t.Logf("Created pool container %d at %s:%d", index, host, portNum)
+	t.Logf("Created pool container %d at %s:%d", index, host, sshContainer.Port)
 	return sshContainer, nil
 }
 
