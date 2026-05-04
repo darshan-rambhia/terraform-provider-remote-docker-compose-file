@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -146,10 +148,16 @@ func createNewContainer(t *testing.T) *SSHDockerContainer {
 		t.Fatalf("failed to get mapped port: %v", err)
 	}
 
+	portNum, err := strconv.Atoi(strings.SplitN(string(mappedPort), "/", 2)[0])
+	if err != nil {
+		_ = container.Terminate(ctx)
+		t.Fatalf("failed to parse mapped port: %v", err)
+	}
+
 	sshContainer := &SSHDockerContainer{
 		Container:      container,
 		Host:           host,
-		Port:           mappedPort.Int(),
+		Port:           portNum,
 		User:           "testuser",
 		PrivateKey:     privateKey,
 		PrivateKeyPath: keyPath,
