@@ -36,7 +36,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - uses: hashicorp/setup-terraform@v4
-      - uses: arduino/setup-task@v2
+      - uses: arduino/setup-task@v3
       - name: Generate docs
         run: task docs
       - name: Check for changes
