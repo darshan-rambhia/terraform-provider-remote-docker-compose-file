@@ -1,6 +1,6 @@
 module github.com/darshan-rambhia/terraform-provider-docker-compose
 
-go 1.25.8
+go 1.26.0
 
 require (
 	github.com/darshan-rambhia/gosftp v0.3.0
@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/testcontainers/testcontainers-go v0.44.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 )
 
 require (
